@@ -99,6 +99,10 @@ table.t{border-collapse:collapse;width:100%;min-width:1000px;font-size:12px}
 table.t th{background:var(--az);color:#fff;text-align:left;padding:8px;font-weight:600;white-space:nowrap}
 table.t td{padding:7px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
 table.t tr:nth-child(even) td{background:#f1f5f9}
+table.t.acc{table-layout:fixed;min-width:1100px}
+table.t.acc th{white-space:normal;line-height:1.25;vertical-align:bottom;font-size:11.5px;padding:8px 6px}
+table.t.acc td{overflow-wrap:anywhere}
+table.t.acc td.d{white-space:nowrap}
 
 /* Formulario */
 .sec{background:#fff;border:1px solid var(--bd);border-radius:8px;padding:16px;margin-bottom:14px}
@@ -122,6 +126,7 @@ table.t tr:nth-child(even) td{background:#f1f5f9}
 .note{background:#fff;border:1px solid var(--bd);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--mut);margin-top:14px}
 .foot{margin-top:14px;background:var(--bg);color:var(--mut);font-size:12px;text-align:center;padding:10px}
 .hint{font-size:12px;color:var(--mut)}
+.hint:empty{display:none}
 #userbox{display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap}
 #userbox .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.6)}
 #userbox .btn:hover{background:rgba(255,255,255,.15)}
@@ -662,6 +667,7 @@ function actionBlock(title, base, evid, removeIdx){
       ${fld("Descripción de la acción", base + ".texto", {ta:1, full:1})}
       ${fld("Responsable", base + ".resp", {list:"dl-personal", ph:"Escribe para buscar en el directorio"})}
       ${fld("Correo del responsable", base + ".resp_email", {type:"email", ph:"nombre@zubex.com.mx"})}
+      <div class="hint" style="grid-column:1/-1;margin-top:-4px;color:var(--bad)" data-hintfor="${base}"></div>
       ${fld("Fecha compromiso", base + ".fecha_compromiso", {type:"date"})}
       ${fld("Fecha de cierre", base + ".fecha_cierre", {type:"date"})}
     </div>
@@ -793,11 +799,14 @@ function viewAcc(){
   <div class="tw">${accTable(rows)}</div>
   <div class="note"><b>Nota metodológica.</b> Incluye únicamente acciones correctivas y preventivas. En proceso = abiertas + por vencer (vencen en 3 días o menos). % sin retraso = (en proceso + cerradas) ÷ (vencidas + en proceso + cerradas). Fecha de identificación = fecha del análisis. Generado: ${fmt(today())}.</div>`;
 }
+/* Nr., Folio, Categoría, Tipo, Oportunidad, Acción, Responsable, F. identificación, F. límite, F. cierre, Status (en %) */
+const ACC_COLS = [3, 6.5, 7, 7, 18.5, 18.5, 8.5, 8.6, 8.6, 8.6, 7.3];
+const accColgroup = "<colgroup>" + ACC_COLS.map(w => `<col style="width:${w}%">`).join("") + "</colgroup>";
 function accTable(rows){
   if (!rows.length) return '<div class="empty" style="border:0">No hay acciones correctivas o preventivas con los filtros actuales.</div>';
   const lbl = s => ({proceso:"En proceso", vencida:"Vencida", cerrada:"Cerrada", sin_fecha:"Sin fecha"})[procSt(s)];
-  return `<table class="t"><thead><tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identificación</th><th>Fecha límite de implementación</th><th>Fecha de cierre de acción</th><th>Status</th></tr></thead><tbody>
-  ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td>${fmt(r.a.fecha_analisis)}</td><td>${fmt(r.x.fecha_compromiso)}</td><td>${fmt(r.x.fecha_cierre)}</td><td>${pillSt(procSt(r.st), lbl(r.st))}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="t acc">${accColgroup}<thead><tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identi&shy;ficación</th><th>Fecha límite de implemen&shy;tación</th><th>Fecha de cierre de acción</th><th>Status</th></tr></thead><tbody>
+  ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td class="d">${fmt(r.a.fecha_analisis)}</td><td class="d">${fmt(r.x.fecha_compromiso)}</td><td class="d">${fmt(r.x.fecha_cierre)}</td><td>${pillSt(procSt(r.st), lbl(r.st))}</td></tr>`).join("")}</tbody></table>`;
 }
 function pillSt(s, label){ const c = s === "proceso" ? "abierta" : s; return `<span class="pill p-${c}">${label}</span>`; }
 
@@ -952,7 +961,7 @@ function printAcc(){
   const lbl = s => ({proceso:"En proceso", vencida:"Vencida", cerrada:"Cerrada", sin_fecha:"Sin fecha"})[procSt(s)];
   printWin("Reporte de acciones MEJ-F-13", `
   <div class="hd"><div class="lg">${logoPrint}</div><div class="tt">Reporte de acciones correctivas y preventivas</div><div class="cl">Clave: MEJ-F-13<br>Fecha: ${fmt(today())}</div></div>
-  <table><tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identificación</th><th>Fecha límite</th><th>Fecha de cierre</th><th>Status</th></tr>
+  <table style="table-layout:fixed">${accColgroup}<tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identificación</th><th>Fecha límite</th><th>Fecha de cierre</th><th>Status</th></tr>
   ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td>${fmt(r.a.fecha_analisis)}</td><td>${fmt(r.x.fecha_compromiso)}</td><td>${fmt(r.x.fecha_cierre)}</td><td>${lbl(r.st)}</td></tr>`).join("")}</table>`);
 }
 function xlsxSave(rows, sheet, name){
@@ -1120,7 +1129,7 @@ document.addEventListener("change", async e => {
   const t = e.target;
   if ("mine" in t.dataset) { state.onlyMine = t.checked; renderList(); return; }
   if (t.dataset.p && state.form) {
-    setP(state.form, t.dataset.p, t.value); autoEmail(t.dataset.p, t.value);
+    setP(state.form, t.dataset.p, t.value); autoEmail(t.dataset.p, t.value); resolverResponsable(t.dataset.p, t.value);
     if (t.dataset.p === "departamento") { state.form.linea_maquina = ""; state.form.equipo_lean = (t.value && !(LEAN_TEAMS[t.value] || []).length) ? "N/A" : ""; if (state.form._new) state.form.folio = ""; }
     if (t.dataset.rr) render();
   }
@@ -1158,6 +1167,27 @@ function autoEmail(path, value){
   setP(state.form, base + ".resp_email", person[1]);
   const em = document.querySelector('[data-p="' + base + '.resp_email"]'); if (em) em.value = person[1];
   const rs = document.querySelector('[data-p="' + path + '"]'); if (rs && rs.value !== person[0]) rs.value = person[0];
+}
+
+/* Al terminar de escribir el responsable (o elegirlo de la lista): si no coincide exacto,
+   se busca por palabras (sin acentos ni mayúsculas); si hay una sola persona se completa sola. */
+function resolverResponsable(path, value){
+  if (!state.form || !/\.resp$/.test(path)) return;
+  const base = path.replace(/\.resp$/, "");
+  const hint = document.querySelector('[data-hintfor="' + base + '"]');
+  const msg = t => { if (hint) hint.textContent = t; };
+  const txt = (value || "").trim();
+  if (!txt) return msg("");
+  if (findPerson(txt)) { autoEmail(path, txt); return msg(""); }
+  if (!DIRECTORIO.length) return msg("El directorio está vacío: la administradora debe cargarlo en la pestaña Directorio. Escribe el correo a mano.");
+  const toks = normN(txt).split(" ").filter(t => t.length >= 2);
+  const cand = toks.length ? DIRECTORIO.filter(r => { const w = normN(r[0]).split(" "); return toks.every(t => w.some(x => x.startsWith(t))); }) : [];
+  if (cand.length === 1) {
+    const rs = document.querySelector('[data-p="' + path + '"]'); if (rs) rs.value = cand[0][0];
+    autoEmail(path, cand[0][0]); return msg("");
+  }
+  if (cand.length > 1) return msg("Hay " + cand.length + " personas que coinciden. Elige una de la lista para que se llene su correo.");
+  msg("No se encontró en el directorio. Elige un nombre de la lista o escribe el correo a mano.");
 }
 
 /* ---------- Inicio ---------- */
