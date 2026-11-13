@@ -235,11 +235,12 @@ const LEAN_TEAMS = {
 };
 /* Ingeniería trabaja en todas las máquinas de la planta: además de sus propias categorías, se listan las líneas de producción. */
 const PLANT_DEPTS = ["Extrusión","Impresión","Conversión","Corrugado"];
+const DEPTS_TODAS_LAS_MAQUINAS = ["Ingeniería", "Calidad"];
 function lineGroups(dep){
-  if (dep !== "Ingeniería") return null;
-  return [["Ingeniería", DEPTS[dep].lines], ...PLANT_DEPTS.map(d => ["Máquinas de " + d, DEPTS[d].lines])];
+  if (!DEPTS_TODAS_LAS_MAQUINAS.includes(dep)) return null;
+  return [[dep, DEPTS[dep].lines], ...PLANT_DEPTS.map(d => ["Máquinas de " + d, DEPTS[d].lines])];
 }
-const TIPOS = ["Folio de calidad","Quejas de cliente","Falla Operativa","Falla correctivo","Accidentes","Merma","Productividad","Indicadores"];
+const TIPOS = ["Folio de calidad","Quejas de cliente","Falla Operativa","Falla correctivo","Accidentes","Merma","Productividad","Indicadores","Auditoría interna","Auditoría externa"];
 const TURNOS = ["Día","Tarde","Noche"];
 /* Colores categóricos fijos por departamento (Manual de Estandarización de Reportes IA) */
 const DEPT_COLOR = {"Extrusión":"#1e40af","Impresión":"#b91c1c","Conversión":"#15803d","Ingeniería":"#0e7490","Corrugado":"#64748b"};
@@ -797,16 +798,32 @@ function viewAcc(){
   </div>
   ${state.acc.card ? '<div class="hint" style="margin-bottom:8px">Filtrando por tarjeta. Vuelve a dar clic en ella para quitar el filtro.</div>' : ""}
   <div class="tw">${accTable(rows)}</div>
-  <div class="note"><b>Nota metodológica.</b> Incluye únicamente acciones correctivas y preventivas. En proceso = abiertas + por vencer (vencen en 3 días o menos). % sin retraso = (en proceso + cerradas) ÷ (vencidas + en proceso + cerradas). Fecha de identificación = fecha del análisis. Generado: ${fmt(today())}.</div>`;
+  <div class="note"><b>Nota metodológica.</b> Incluye únicamente acciones correctivas y preventivas. En proceso = abiertas + por vencer (vencen en 3 días o menos). % sin retraso = (en proceso + cerradas) ÷ (vencidas + en proceso + cerradas). Fecha de identificación = fecha del análisis. La evidencia (archivo o comentario) se muestra solo cuando la acción ya está cerrada. Generado: ${fmt(today())}.</div>`;
 }
-/* Nr., Folio, Categoría, Tipo, Oportunidad, Acción, Responsable, F. identificación, F. límite, F. cierre, Status (en %) */
-const ACC_COLS = [3, 6.5, 7, 7, 18.5, 18.5, 8.5, 8.6, 8.6, 8.6, 7.3];
+/* Nr., Folio, Categoría, Tipo, Oportunidad, Acción, Responsable, F. identificación, F. límite, F. cierre, Evidencia, Status (en %) */
+const ACC_COLS = [3, 6, 6.5, 7.5, 15, 15, 8, 8.4, 8.4, 8.4, 10, 9];
 const accColgroup = "<colgroup>" + ACC_COLS.map(w => `<col style="width:${w}%">`).join("") + "</colgroup>";
+/* Evidencia de una acción: solo se muestra cuando la acción ya está cerrada */
+const evidTxt = r => {
+  if (r.st !== "cerrada") return "";
+  const p = [];
+  if ((r.x.evidencia_archivo || r.x.evidencia_ruta) && r.x.evidencia_nombre) p.push("Archivo: " + r.x.evidencia_nombre);
+  if ((r.x.evidencia_comentario || "").trim()) p.push("Comentario: " + r.x.evidencia_comentario.trim());
+  return p.join(" | ") || "Sin evidencia";
+};
+const evidCell = r => {
+  if (r.st !== "cerrada") return "";
+  if (!hasEvid(r.x)) return '<span class="meta">Sin evidencia</span>';
+  const c = (r.x.evidencia_comentario || "").trim(), tieneArchivo = !!(r.x.evidencia_archivo || r.x.evidencia_ruta);
+  return `<button class="btn sm" data-act="evid" data-id="${r.a.id}" data-k="${r.x.k}" data-i="${r.x.i}">Ver</button>`
+    + (tieneArchivo && r.x.evidencia_nombre ? `<div class="meta">${esc(r.x.evidencia_nombre)}</div>` : "")
+    + (c ? `<div class="meta">${esc(c.slice(0, 90))}${c.length > 90 ? "…" : ""}</div>` : "");
+};
 function accTable(rows){
   if (!rows.length) return '<div class="empty" style="border:0">No hay acciones correctivas o preventivas con los filtros actuales.</div>';
   const lbl = s => ({proceso:"En proceso", vencida:"Vencida", cerrada:"Cerrada", sin_fecha:"Sin fecha"})[procSt(s)];
-  return `<table class="t acc">${accColgroup}<thead><tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identi&shy;ficación</th><th>Fecha límite de implemen&shy;tación</th><th>Fecha de cierre de acción</th><th>Status</th></tr></thead><tbody>
-  ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td class="d">${fmt(r.a.fecha_analisis)}</td><td class="d">${fmt(r.x.fecha_compromiso)}</td><td class="d">${fmt(r.x.fecha_cierre)}</td><td>${pillSt(procSt(r.st), lbl(r.st))}</td></tr>`).join("")}</tbody></table>`;
+  return `<table class="t acc">${accColgroup}<thead><tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identi&shy;ficación</th><th>Fecha límite de implemen&shy;tación</th><th>Fecha de cierre de acción</th><th>Evidencia</th><th>Status</th></tr></thead><tbody>
+  ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td class="d">${fmt(r.a.fecha_analisis)}</td><td class="d">${fmt(r.x.fecha_compromiso)}</td><td class="d">${fmt(r.x.fecha_cierre)}</td><td>${evidCell(r)}</td><td>${pillSt(procSt(r.st), lbl(r.st))}</td></tr>`).join("")}</tbody></table>`;
 }
 function pillSt(s, label){ const c = s === "proceso" ? "abierta" : s; return `<span class="pill p-${c}">${label}</span>`; }
 
@@ -961,8 +978,8 @@ function printAcc(){
   const lbl = s => ({proceso:"En proceso", vencida:"Vencida", cerrada:"Cerrada", sin_fecha:"Sin fecha"})[procSt(s)];
   printWin("Reporte de acciones MEJ-F-13", `
   <div class="hd"><div class="lg">${logoPrint}</div><div class="tt">Reporte de acciones correctivas y preventivas</div><div class="cl">Clave: MEJ-F-13<br>Fecha: ${fmt(today())}</div></div>
-  <table style="table-layout:fixed">${accColgroup}<tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identificación</th><th>Fecha límite</th><th>Fecha de cierre</th><th>Status</th></tr>
-  ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td>${fmt(r.a.fecha_analisis)}</td><td>${fmt(r.x.fecha_compromiso)}</td><td>${fmt(r.x.fecha_cierre)}</td><td>${lbl(r.st)}</td></tr>`).join("")}</table>`);
+  <table style="table-layout:fixed">${accColgroup}<tr><th>Nr.</th><th>Folio</th><th>Categoría</th><th>Tipo de acción</th><th>Oportunidad</th><th>Acción</th><th>Responsable</th><th>Fecha identificación</th><th>Fecha límite</th><th>Fecha de cierre</th><th>Evidencia</th><th>Status</th></tr>
+  ${rows.map((r, i) => `<tr><td>${i+1}</td><td>${esc(r.a.folio)}</td><td>${esc(r.a.tipo_analisis)}</td><td>${r.x.tipo}</td><td>${esc(r.a.descripcion_falla)}</td><td>${esc(r.x.texto)}</td><td>${esc(r.x.resp)}</td><td>${fmt(r.a.fecha_analisis)}</td><td>${fmt(r.x.fecha_compromiso)}</td><td>${fmt(r.x.fecha_cierre)}</td><td>${esc(evidTxt(r))}</td><td>${lbl(r.st)}</td></tr>`).join("")}</table>`);
 }
 function xlsxSave(rows, sheet, name){
   if (typeof XLSX === "undefined") return notify("No se cargó la librería de Excel. Revisa la conexión a internet y recarga la página.");
@@ -987,7 +1004,7 @@ function exportAcc(){
   const lbl = s => ({proceso:"En proceso", vencida:"Vencida", cerrada:"Cerrada", sin_fecha:"Sin fecha"})[procSt(s)];
   const rows = state.acc.card ? accRows().filter(r => procSt(r.st) === state.acc.card) : accRows();
   xlsxSave(rows.map((r, i) => ({"Nr.":i+1, "Folio":r.a.folio, "Categoría":r.a.tipo_analisis, "Tipo de acción":r.x.tipo, "Oportunidad":r.a.descripcion_falla, "Acción":r.x.texto,
-    "Responsable":r.x.resp, "Fecha identificación":fmt(r.a.fecha_analisis), "Fecha límite de implementación":fmt(r.x.fecha_compromiso), "Fecha de cierre de acción":fmt(r.x.fecha_cierre), "Status":lbl(r.st)})),
+    "Responsable":r.x.resp, "Fecha identificación":fmt(r.a.fecha_analisis), "Fecha límite de implementación":fmt(r.x.fecha_compromiso), "Fecha de cierre de acción":fmt(r.x.fecha_cierre), "Evidencia":evidTxt(r), "Status":lbl(r.st)})),
     "MEJ-F-13", "Reporte_Acciones_MEJ-F-13");
 }
 
